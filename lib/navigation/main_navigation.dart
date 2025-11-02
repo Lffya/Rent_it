@@ -32,7 +32,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.blue,
+        selectedItemColor: const Color(0xFF5E35B1), // deep purple
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.category), label: 'Categories'),
@@ -41,13 +41,43 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => AppRoutes.navigateToAddItem(context),
-        icon: const Icon(Icons.add),
-        label: const Text('List Item'),
-        backgroundColor: Colors.blue,
-      ),
+
+      // ✅ Show gradient FAB only on Home, Categories, and My Listings
+      floatingActionButton: _shouldShowFab()
+          ? Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF5E35B1), Color(0xFF7E57C2)], // purple gradient
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(40),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.18),
+              blurRadius: 10,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: FloatingActionButton.extended(
+          onPressed: () => AppRoutes.navigateToAddItem(context),
+          icon: const Icon(Icons.add, color: Colors.white),
+          label: const Text(
+            'List Item',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: Colors.transparent, // for gradient
+          elevation: 0,
+        ),
+      )
+          : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
+  }
+
+  /// ✅ Only show FAB on Home (0), Categories (1), and My Listings (2)
+  bool _shouldShowFab() {
+    return _currentIndex == 1 || _currentIndex == 2;
   }
 }
