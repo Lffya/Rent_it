@@ -3,6 +3,8 @@
     <!-- ✅ Location permissions -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- ✅ Internet permission for API calls -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
@@ -10,7 +12,13 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 
-        <!-- ✅ Google Maps API Key -->
+        <!-- ⚠️ SECURITY WARNING: Your Google Maps API Key is exposed!
+             You should restrict this key in Google Cloud Console:
+             1. Go to: https://console.cloud.google.com/apis/credentials
+             2. Click on this API key
+             3. Under "Application restrictions", select "Android apps"
+             4. Add your app's package name and SHA-1 fingerprint
+        -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyAx-gJZHj6TxxXfHUhRhjuctm-azI1SeQU"/>

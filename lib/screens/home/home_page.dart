@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../widgets/item_card.dart';
 import '../../routes/app_routes.dart';
+import './chatbot_screen.dart'; // ✅ added import for chatbot
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -436,7 +437,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         category: data['category'] ?? '',
                         description: data['description'] ?? '',
                         sellerName: data['sellerName'] ?? 'Unknown',
-                        // ✅ FIXED PART
                         pickupLocation: Map<String, dynamic>.from(data['pickupLocation'] ?? {}),
                       );
                     },
@@ -447,6 +447,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             },
           ),
         ],
+      ),
+
+      // 💬 Floating Chatbot Button
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color(0xFF1A237E),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ChatbotScreen()),
+          );
+        },
+        child: const Icon(Icons.chat, color: Colors.white),
       ),
     );
   }
