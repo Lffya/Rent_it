@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'dart:math' show cos, sqrt, asin;
+import '../../widgets/location_picker.dart';
 
 class ItemCard extends StatelessWidget {
   final String id;
@@ -11,6 +14,8 @@ class ItemCard extends StatelessWidget {
   final String category;
   final String description;
   final String sellerName;
+  final int? qualityRating;
+  final Map<String, dynamic>? pickupLocation;
 
   const ItemCard({
     super.key,
@@ -21,28 +26,32 @@ class ItemCard extends StatelessWidget {
     required this.category,
     required this.description,
     required this.sellerName,
+    this.qualityRating,
+    this.pickupLocation,
   });
-
-  void _showFullScreenView(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => _FullScreenItemView(
-          id: id,
-          name: name,
-          imageUrl: imageUrl,
-          pricePerDay: pricePerDay,
-          category: category,
-          description: description,
-          sellerName: sellerName,
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
+    final rating = qualityRating ?? 5;
+
     return GestureDetector(
-      onTap: () => _showFullScreenView(context),
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => _FullScreenItemView(
+              id: id,
+              name: name,
+              imageUrl: imageUrl,
+              pricePerDay: pricePerDay,
+              category: category,
+              description: description,
+              sellerName: sellerName,
+              qualityRating: rating,
+              pickupLocation: pickupLocation ?? {},
+            ),
+          ),
+        );
+      },
       child: Card(
         elevation: 2,
         shape: RoundedRectangleBorder(
@@ -102,6 +111,17 @@ class ItemCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 6),
+                  // Rating Stars
+                  Row(
+                    children: List.generate(5, (index) {
+                      return Icon(
+                        index < rating ? Icons.star : Icons.star_border,
+                        size: 14,
+                        color: Colors.amber,
+                      );
+                    }),
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     '₹${pricePerDay.toStringAsFixed(0)}/day',
@@ -129,6 +149,8 @@ class _FullScreenItemView extends StatefulWidget {
   final String category;
   final String description;
   final String sellerName;
+  final int qualityRating;
+  final Map<String, dynamic> pickupLocation;
 
   const _FullScreenItemView({
     required this.id,
@@ -138,6 +160,8 @@ class _FullScreenItemView extends StatefulWidget {
     required this.category,
     required this.description,
     required this.sellerName,
+    required this.qualityRating,
+    required this.pickupLocation,
   });
 
   @override
@@ -145,7 +169,65 @@ class _FullScreenItemView extends StatefulWidget {
 }
 
 class _FullScreenItemViewState extends State<_FullScreenItemView> {
+  LatLng? _deliveryLocation;
+  String _deliveryAddress = '';
+
+  // Calculate distance between two coordinates using Haversine formula
+  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    const p = 0.017453292519943295; // Math.PI / 180
+    final a = 0.5 - cos((lat2 - lat1) * p) / 2 +
+        cos(lat1 * p) * cos(lat2 * p) * (1 - cos((lon2 - lon1) * p)) / 2;
+    return 12742 * asin(sqrt(a)); // 2 * R; R = 6371 km
+  }
+
+  double _calculateDeliveryCharges(double distanceKm) {
+    // ₹10 per km
+    return distanceKm * 10;
+  }
+
+  Future<void> _selectDeliveryLocation() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LocationPickerPage(
+          initialLocation: _deliveryLocation,
+        ),
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _deliveryLocation = result['location'];
+        _deliveryAddress = result['address'];
+      });
+    }
+  }
+
   void _showRentalDialog(BuildContext context) {
+    // Check if pickup location is available
+    if (widget.pickupLocation.isEmpty ||
+        widget.pickupLocation['lat'] == null ||
+        widget.pickupLocation['lng'] == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pickup location not available for this item'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Check if delivery location is selected
+    if (_deliveryLocation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select delivery location first'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     DateTimeRange? selectedRange;
 
     showDialog(
@@ -156,14 +238,31 @@ class _FullScreenItemViewState extends State<_FullScreenItemView> {
             final days = selectedRange != null
                 ? selectedRange!.duration.inDays + 1
                 : 0;
-            final totalPrice = days * widget.pricePerDay;
+
+            double distance = 0;
+            double deliveryCharges = 0;
+
+            if (_deliveryLocation != null) {
+              final sellerLat = widget.pickupLocation['lat'];
+              final sellerLng = widget.pickupLocation['lng'];
+              distance = _calculateDistance(
+                sellerLat,
+                sellerLng,
+                _deliveryLocation!.latitude,
+                _deliveryLocation!.longitude,
+              );
+              deliveryCharges = _calculateDeliveryCharges(distance);
+            }
+
+            final rentalPrice = days * widget.pricePerDay;
+            final totalPrice = rentalPrice + deliveryCharges;
 
             return AlertDialog(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
               title: const Text(
-                'Select Rental Period',
+                'Rental Details',
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
               content: SingleChildScrollView(
@@ -180,31 +279,18 @@ class _FullScreenItemViewState extends State<_FullScreenItemView> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Price per day:',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          Text(
-                            '₹${widget.pricePerDay.toStringAsFixed(0)}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16,
-                              color: Color(0xFF1A237E),
-                            ),
-                          ),
-                        ],
+                    const SizedBox(height: 8),
+                    Text(
+                      'Please select your delivery location on the main screen first',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                        fontStyle: FontStyle.italic,
                       ),
                     ),
                     const SizedBox(height: 16),
+
+                    // Date Selection
                     ElevatedButton.icon(
                       onPressed: () async {
                         final picked = await showDateRangePicker(
@@ -232,7 +318,7 @@ class _FullScreenItemViewState extends State<_FullScreenItemView> {
                         }
                       },
                       icon: const Icon(Icons.calendar_today),
-                      label: const Text('Select Dates'),
+                      label: const Text('Select Rental Dates'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1A237E),
                         foregroundColor: Colors.white,
@@ -242,6 +328,7 @@ class _FullScreenItemViewState extends State<_FullScreenItemView> {
                         ),
                       ),
                     ),
+
                     if (selectedRange != null) ...[
                       const SizedBox(height: 16),
                       Container(
@@ -259,7 +346,7 @@ class _FullScreenItemViewState extends State<_FullScreenItemView> {
                             Row(
                               children: [
                                 const Icon(
-                                  Icons.event_available,
+                                  Icons.receipt_long,
                                   size: 20,
                                   color: Color(0xFF1A237E),
                                 ),
@@ -290,7 +377,22 @@ class _FullScreenItemViewState extends State<_FullScreenItemView> {
                             ),
                             const SizedBox(height: 6),
                             _buildSummaryRow(
-                              'Total:',
+                              'Rental (₹${widget.pricePerDay.toStringAsFixed(0)} × $days):',
+                              '₹${rentalPrice.toStringAsFixed(0)}',
+                            ),
+                            const SizedBox(height: 6),
+                            _buildSummaryRow(
+                              'Distance:',
+                              '${distance.toStringAsFixed(2)} km',
+                            ),
+                            const SizedBox(height: 6),
+                            _buildSummaryRow(
+                              'Delivery Charges:',
+                              '₹${deliveryCharges.toStringAsFixed(0)}',
+                            ),
+                            const Divider(height: 20),
+                            _buildSummaryRow(
+                              'Total Amount:',
                               '₹${totalPrice.toStringAsFixed(0)}',
                               isTotal: true,
                             ),
@@ -319,6 +421,8 @@ class _FullScreenItemViewState extends State<_FullScreenItemView> {
                       selectedRange!.end,
                       days,
                       totalPrice,
+                      distance,
+                      deliveryCharges,
                     );
                     if (context.mounted) {
                       Navigator.pop(context);
@@ -351,12 +455,14 @@ class _FullScreenItemViewState extends State<_FullScreenItemView> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: isTotal ? 15 : 13,
-            fontWeight: isTotal ? FontWeight.w700 : FontWeight.w500,
-            color: Colors.grey[700],
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: isTotal ? 15 : 13,
+              fontWeight: isTotal ? FontWeight.w700 : FontWeight.w500,
+              color: Colors.grey[700],
+            ),
           ),
         ),
         Text(
@@ -377,6 +483,8 @@ class _FullScreenItemViewState extends State<_FullScreenItemView> {
       DateTime endDate,
       int days,
       double totalPrice,
+      double distance,
+      double deliveryCharges,
       ) async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) {
@@ -407,9 +515,18 @@ class _FullScreenItemViewState extends State<_FullScreenItemView> {
         'startDate': Timestamp.fromDate(startDate),
         'endDate': Timestamp.fromDate(endDate),
         'days': days,
+        'rentalPrice': days * widget.pricePerDay,
+        'deliveryCharges': deliveryCharges,
+        'distance': distance,
         'totalPrice': totalPrice,
         'category': widget.category,
         'sellerName': widget.sellerName,
+        'pickupLocation': widget.pickupLocation,
+        'deliveryLocation': {
+          'lat': _deliveryLocation!.latitude,
+          'lng': _deliveryLocation!.longitude,
+          'address': _deliveryAddress,
+        },
         'addedAt': FieldValue.serverTimestamp(),
       });
 
@@ -422,7 +539,7 @@ class _FullScreenItemViewState extends State<_FullScreenItemView> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Added to cart for $days ${days == 1 ? "day" : "days"}',
+                    'Added to cart! Total: ₹${totalPrice.toStringAsFixed(0)}',
                   ),
                 ),
               ],
@@ -432,7 +549,7 @@ class _FullScreenItemViewState extends State<_FullScreenItemView> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
-            duration: const Duration(seconds: 2),
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -450,6 +567,9 @@ class _FullScreenItemViewState extends State<_FullScreenItemView> {
 
   @override
   Widget build(BuildContext context) {
+    final hasPickupLocation = widget.pickupLocation.isNotEmpty &&
+        widget.pickupLocation['address'] != null;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: CustomScrollView(
@@ -532,6 +652,28 @@ class _FullScreenItemViewState extends State<_FullScreenItemView> {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  // Rating
+                  Row(
+                    children: [
+                      ...List.generate(5, (index) {
+                        return Icon(
+                          index < widget.qualityRating ? Icons.star : Icons.star_border,
+                          size: 24,
+                          color: Colors.amber,
+                        );
+                      }),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${widget.qualityRating}/5',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
                   // Seller Info
                   Row(
                     children: [
@@ -623,6 +765,138 @@ class _FullScreenItemViewState extends State<_FullScreenItemView> {
                       height: 1.6,
                     ),
                   ),
+                  const SizedBox(height: 24),
+                  // Pickup Location
+                  const Text(
+                    'Pickup Location',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF212121),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A237E).withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF1A237E).withOpacity(0.2)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.store,
+                          color: Color(0xFF1A237E),
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Item available at:',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                hasPickupLocation
+                                    ? widget.pickupLocation['address']
+                                    : 'Address not available',
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black87,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Divider(height: 1),
+                  const SizedBox(height: 24),
+                  // Delivery Location Section
+                  const Text(
+                    'Your Delivery Location',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF212121),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      await _selectDeliveryLocation();
+                      setState(() {});
+                    },
+                    icon: const Icon(Icons.location_on),
+                    label: Text(
+                      _deliveryLocation == null
+                          ? 'Select Delivery Location on Map'
+                          : 'Delivery Location Selected ✓',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _deliveryLocation == null
+                          ? const Color(0xFF1A237E)
+                          : Colors.green,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 56),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                  ),
+                  if (_deliveryLocation != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.green.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: Colors.green),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Delivery Location:',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.green,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _deliveryAddress,
+                                  style: const TextStyle(fontSize: 13),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 100),
                 ],
               ),

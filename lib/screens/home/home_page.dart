@@ -3,10 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../widgets/item_card.dart';
 import '../../routes/app_routes.dart';
 
-// ✅ New imports
-import 'package:geolocator/geolocator.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -18,48 +14,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
-
-  // ✅ Location Function
-  Future<void> _getLocationAndSave() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      await Geolocator.openLocationSettings();
-      return;
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) return;
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      await Geolocator.openAppSettings();
-      return;
-    }
-
-    // ✅ Get GPS coords
-    Position position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-    );
-
-    // ✅ Current user
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    // ✅ Save to Firestore: users/userId/location
-    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-      'location': {
-        'lat': position.latitude,
-        'lng': position.longitude,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }
-    }, SetOptions(merge: true));
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Location saved successfully ✅")),
-    );
-  }
 
   @override
   void initState() {
@@ -125,6 +79,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     ),
                     child: Stack(
                       children: [
+                        // Animated circles background
                         Positioned(
                           top: -50,
                           right: -50,
@@ -171,6 +126,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           ),
                         ),
 
+                        // Main content
                         Center(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -246,7 +202,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             ),
           ),
 
-          // Categories + Location Button
+          // Categories Section
           SliverToBoxAdapter(
             child: Container(
               color: Colors.white,
@@ -286,33 +242,34 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 16),
-
+                  // Horizontal scrollable categories
                   SizedBox(
                     height: 140,
                     child: ListView(
                       scrollDirection: Axis.horizontal,
                       children: [
-                        _buildCategoryCard(context, 'Music', Icons.music_note, const Color(0xFF7E57C2)),
+                        _buildCategoryCard(
+                          context,
+                          'Music',
+                          Icons.music_note,
+                          const Color(0xFF9C27B0),
+                        ),
                         const SizedBox(width: 16),
-                        _buildCategoryCard(context, 'Gym & Sports', Icons.fitness_center, const Color(0xFFAB47BC)),
+                        _buildCategoryCard(
+                          context,
+                          'Gym & Sports',
+                          Icons.fitness_center,
+                          const Color(0xFFFF9800),
+                        ),
                         const SizedBox(width: 16),
-                        _buildCategoryCard(context, 'Hardware Tools', Icons.construction, const Color(0xFF5C6BC0)),
+                        _buildCategoryCard(
+                          context,
+                          'Hardware Tools',
+                          Icons.construction,
+                          const Color(0xFF2196F3),
+                        ),
                       ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // ✅ Button added here
-                  ElevatedButton.icon(
-                    onPressed: _getLocationAndSave,
-                    icon: const Icon(Icons.my_location),
-                    label: const Text("Save My Location"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1A237E),
-                      foregroundColor: Colors.white,
                     ),
                   ),
                 ],
@@ -338,11 +295,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     ),
                   ),
                   StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance.collection('items').snapshots(),
+                    stream: FirebaseFirestore.instance
+                        .collection('items')
+                        .snapshots(),
                     builder: (context, snapshot) {
-                      final count = snapshot.hasData ? snapshot.data!.docs.length : 0;
+                      final count = snapshot.hasData
+                          ? snapshot.data!.docs.length
+                          : 0;
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFF1A237E),
                           borderRadius: BorderRadius.circular(20),
@@ -376,7 +340,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   child: Center(
                     child: Padding(
                       padding: EdgeInsets.all(40),
-                      child: CircularProgressIndicator(color: Color(0xFF1A237E)),
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF1A237E),
+                      ),
                     ),
                   ),
                 );
@@ -397,7 +363,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                 color: Colors.grey[200],
                                 shape: BoxShape.circle,
                               ),
-                              child: Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey[400]),
+                              child: Icon(
+                                Icons.inventory_2_outlined,
+                                size: 64,
+                                color: Colors.grey[400],
+                              ),
                             ),
                             const SizedBox(height: 20),
                             Text(
@@ -411,19 +381,28 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                             const SizedBox(height: 8),
                             Text(
                               'Be the first to list an item!',
-                              style: TextStyle(fontSize: 15, color: Colors.grey[500]),
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: Colors.grey[500],
+                              ),
                             ),
                             const SizedBox(height: 24),
                             ElevatedButton.icon(
-                              onPressed: () => AppRoutes.navigateToAddItem(context),
+                              onPressed: () =>
+                                  AppRoutes.navigateToAddItem(context),
                               icon: const Icon(Icons.add_circle_outline),
                               label: const Text('List Your First Item'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF1A237E),
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 14,
+                                ),
                                 elevation: 0,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
                             ),
                           ],
@@ -447,15 +426,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   ),
                   delegate: SliverChildBuilderDelegate(
                         (context, index) {
-                      final item = items[index].data() as Map<String, dynamic>;
+                      final data = items[index].data() as Map<String, dynamic>;
+
                       return ItemCard(
                         id: items[index].id,
-                        name: item['name'] ?? '',
-                        imageUrl: item['imageUrl'] ?? '',
-                        pricePerDay: (item['pricePerDay'] ?? 0).toDouble(),
-                        category: item['category'] ?? '',
-                        description: item['description'] ?? '',
-                        sellerName: item['sellerName'] ?? 'Unknown',
+                        name: data['name'] ?? '',
+                        imageUrl: data['imageUrl'] ?? '',
+                        pricePerDay: (data['pricePerDay'] ?? 0).toDouble(),
+                        category: data['category'] ?? '',
+                        description: data['description'] ?? '',
+                        sellerName: data['sellerName'] ?? 'Unknown',
+                        // ✅ FIXED PART
+                        pickupLocation: Map<String, dynamic>.from(data['pickupLocation'] ?? {}),
                       );
                     },
                     childCount: items.length,
@@ -469,7 +451,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildCategoryCard(BuildContext context, String name, IconData icon, Color color) {
+  Widget _buildCategoryCard(
+      BuildContext context,
+      String name,
+      IconData icon,
+      Color color,
+      ) {
     return InkWell(
       onTap: () => AppRoutes.navigateToCatalogue(context, name),
       borderRadius: BorderRadius.circular(16),
@@ -479,7 +466,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           color: color,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
-            BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4)),
+            BoxShadow(
+              color: color.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
           ],
         ),
         child: Column(
@@ -487,8 +478,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           children: [
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-              child: Icon(icon, size: 36, color: color),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: 36,
+                color: color,
+              ),
             ),
             const SizedBox(height: 12),
             Text(

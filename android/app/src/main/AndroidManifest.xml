@@ -3,13 +3,17 @@
     <!-- ✅ Location permissions -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <!-- Optional (only if you need background location tracking) -->
-    <!-- <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" /> -->
+    <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
-        android:label="untitled"
+        android:label="RENT IT"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+
+        <!-- ✅ Google Maps API Key -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyAx-gJZHj6TxxXfHUhRhjuctm-azI1SeQU"/>
 
         <activity
             android:name=".MainActivity"

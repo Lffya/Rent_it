@@ -62,281 +62,6 @@ class CartItemCard extends StatelessWidget {
     }
   }
 
-  void _showEditDialog(BuildContext context) {
-    DateTimeRange? selectedRange = DateTimeRange(start: startDate, end: endDate);
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            final newDays = selectedRange != null
-                ? selectedRange!.duration.inDays + 1
-                : 0;
-            final newTotalPrice = newDays * pricePerDay;
-
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              title: const Text(
-                'Edit Rental Period',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A237E),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Price per day:',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          Text(
-                            '₹${pricePerDay.toStringAsFixed(0)}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16,
-                              color: Color(0xFF1A237E),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        final picked = await showDateRangePicker(
-                          context: context,
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
-                          initialDateRange: selectedRange,
-                          builder: (context, child) {
-                            return Theme(
-                              data: Theme.of(context).copyWith(
-                                colorScheme: const ColorScheme.light(
-                                  primary: Color(0xFF1A237E),
-                                  onPrimary: Colors.white,
-                                  surface: Colors.white,
-                                  onSurface: Colors.black,
-                                ),
-                              ),
-                              child: child!,
-                            );
-                          },
-                        );
-                        if (picked != null) {
-                          setDialogState(() {
-                            selectedRange = picked;
-                          });
-                        }
-                      },
-                      icon: const Icon(Icons.calendar_today),
-                      label: const Text('Change Dates'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1A237E),
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    if (selectedRange != null) ...[
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A237E).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: const Color(0xFF1A237E).withOpacity(0.3),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.event_available,
-                                  size: 20,
-                                  color: Color(0xFF1A237E),
-                                ),
-                                const SizedBox(width: 8),
-                                const Text(
-                                  'Updated Rental',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            _buildSummaryRow(
-                              'From:',
-                              DateFormat('MMM dd, yyyy').format(selectedRange!.start),
-                            ),
-                            const SizedBox(height: 6),
-                            _buildSummaryRow(
-                              'To:',
-                              DateFormat('MMM dd, yyyy').format(selectedRange!.end),
-                            ),
-                            const Divider(height: 20),
-                            _buildSummaryRow(
-                              'Duration:',
-                              '$newDays ${newDays == 1 ? "day" : "days"}',
-                            ),
-                            const SizedBox(height: 6),
-                            _buildSummaryRow(
-                              'Total:',
-                              '₹${newTotalPrice.toStringAsFixed(0)}',
-                              isTotal: true,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(
-                    'Cancel',
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    await _updateCart(
-                      context,
-                      selectedRange!.start,
-                      selectedRange!.end,
-                      newDays,
-                      newTotalPrice,
-                    );
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A237E),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                  ),
-                  child: const Text('Update'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildSummaryRow(String label, String value, {bool isTotal = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: isTotal ? 15 : 13,
-            fontWeight: isTotal ? FontWeight.w700 : FontWeight.w500,
-            color: Colors.grey[700],
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: isTotal ? 16 : 14,
-            fontWeight: FontWeight.w700,
-            color: isTotal ? const Color(0xFF1A237E) : Colors.black87,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _updateCart(
-      BuildContext context,
-      DateTime newStartDate,
-      DateTime newEndDate,
-      int newDays,
-      double newTotalPrice,
-      ) async {
-    final userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) return;
-
-    try {
-      await FirebaseFirestore.instance
-          .collection('carts')
-          .doc(userId)
-          .collection('items')
-          .doc(docId)
-          .update({
-        'startDate': Timestamp.fromDate(newStartDate),
-        'endDate': Timestamp.fromDate(newEndDate),
-        'days': newDays,
-        'totalPrice': newTotalPrice,
-      });
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 12),
-                Text('Rental dates updated'),
-              ],
-            ),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -472,7 +197,7 @@ class CartItemCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            // Rental Period Section
+            // Rental Period Section (non-editable now)
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -485,35 +210,19 @@ class CartItemCard extends StatelessWidget {
               child: Column(
                 children: [
                   Row(
-                    children: [
-                      const Icon(
+                    children: const [
+                      Icon(
                         Icons.event,
                         size: 18,
                         color: Color(0xFF1A237E),
                       ),
-                      const SizedBox(width: 8),
-                      const Text(
+                      SizedBox(width: 8),
+                      Text(
                         'Rental Period',
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
                           color: Color(0xFF1A237E),
-                        ),
-                      ),
-                      const Spacer(),
-                      TextButton.icon(
-                        onPressed: () => _showEditDialog(context),
-                        icon: const Icon(Icons.edit, size: 16),
-                        label: const Text(
-                          'Edit',
-                          style: TextStyle(fontSize: 13),
-                        ),
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFF1A237E),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
                         ),
                       ),
                     ],
