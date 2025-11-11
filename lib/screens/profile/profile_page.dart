@@ -9,6 +9,15 @@ class ProfilePage extends StatelessWidget {
     await FirebaseAuth.instance.signOut();
   }
 
+  void _showSettingsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return const SettingsDialog();
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -59,11 +68,7 @@ class ProfilePage extends StatelessWidget {
                     leading: const Icon(Icons.settings_outlined),
                     title: const Text('Settings'),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Feature coming soon!')),
-                      );
-                    },
+                    onTap: () => _showSettingsDialog(context),
                   ),
                 ],
               ),
@@ -85,6 +90,63 @@ class ProfilePage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class SettingsDialog extends StatefulWidget {
+  const SettingsDialog({super.key});
+
+  @override
+  State<SettingsDialog> createState() => _SettingsDialogState();
+}
+
+class _SettingsDialogState extends State<SettingsDialog> {
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final isDarkMode = brightness == Brightness.dark;
+
+    return AlertDialog(
+      title: const Text('Settings'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SwitchListTile(
+            title: const Text('Dark Mode'),
+            subtitle: const Text('Toggle app theme'),
+            value: isDarkMode,
+            secondary: Icon(isDarkMode ? Icons.dark_mode : Icons.light_mode),
+            onChanged: (bool value) {
+              // This will work if you have a theme provider in your app
+              // For now, this shows the UI - you'll need to implement theme switching
+              // using Provider, Riverpod, or another state management solution
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Theme switching requires state management setup'),
+                  action: SnackBarAction(
+                    label: 'OK',
+                    onPressed: () {},
+                  ),
+                ),
+              );
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: const Text('App Version'),
+            subtitle: const Text('1.0.0'),
+            dense: true,
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
     );
   }
 }
